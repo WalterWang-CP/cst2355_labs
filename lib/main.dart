@@ -10,70 +10,121 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Shopping List',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const ListPage(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  final String title;
+class ListPage extends StatefulWidget {
+  const ListPage({super.key});
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<ListPage> createState() => _ListPageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  var _counter = 0.0; // Changed from int to var (double)
-  double myFontSize = 30.0; // New font size variable
+class _ListPageState extends State<ListPage> {
+  final TextEditingController _itemController = TextEditingController();
+  final TextEditingController _quantityController = TextEditingController();
 
-  void setNewValue(double value) {
-    setState(() {
-      _counter = value; // Update counter
-      myFontSize = value; // Update font size
-    });
+  List<Map<String, dynamic>> shoppingList = [];
+
+  void addItem() {
+    String itemName = _itemController.text.trim();
+    String quantity = _quantityController.text.trim();
+
+    if (itemName.isNotEmpty && quantity.isNotEmpty) {
+      setState(() {
+        shoppingList.add({'name': itemName, 'quantity': quantity});
+        _itemController.clear();
+        _quantityController.clear();
+      });
+    }
+  }
+
+  void deleteItem(int index) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text("Delete Item"),
+          content: const Text("Are you sure you want to delete this item?"),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context), // No action
+              child: const Text("No"),
+            ),
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  shoppingList.removeAt(index);
+                });
+                Navigator.pop(context);
+              },
+              child: const Text("Yes"),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Text(widget.title),
-      ),
-      body: Center(
+      appBar: AppBar(title: const Text("Shopping List")),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Text(
-              'You have pushed the button this many times:',
-              style: TextStyle(fontSize: myFontSize), // Apply font size
+          children: [
+            TextField(
+              controller: _itemController,
+              decoration: const InputDecoration(
+                labelText: "Item Name",
+                border: OutlineInputBorder(),
+              ),
             ),
-            Text(
-              '$_counter',
-              style: TextStyle(fontSize: myFontSize), // Apply font size
+            const SizedBox(height: 10),
+            TextField(
+              controller: _quantityController,
+              decoration: const InputDecoration(
+                labelText: "Quantity",
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.number,
             ),
-            Slider(
-              value: _counter,
-              min: 10.0,
-              max: 100.0,
-              divisions: 10,
-              label: _counter.toStringAsFixed(1),
-              onChanged: setNewValue,
+            const SizedBox(height: 10),
+            ElevatedButton(
+              onPressed: addItem,
+              child: const Text("Add"),
+            ),
+            const SizedBox(height: 10),
+            Expanded(
+              child: shoppingList.isEmpty
+                  ? const Center(child: Text("There are no items in the list"))
+                  : ListView.builder(
+                itemCount: shoppingList.length,
+                itemBuilder: (context, index) {
+                  return GestureDetector(
+                    onLongPress: () => deleteItem(index),
+                    child: Card(
+                      child: ListTile(
+                        title: Text(
+                          "${index + 1}. ${shoppingList[index]['name']}",
+                        ),
+                        trailing: Text("x ${shoppingList[index]['quantity']}"),
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
           ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => setNewValue(_counter + 1.0),
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
       ),
     );
   }
