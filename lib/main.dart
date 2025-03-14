@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
+import 'shopping_database.dart';
+import 'shopping_dao.dart';
+import 'shopping_item.dart';
 
-void main() {
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
 }
 
@@ -31,23 +36,47 @@ class _ListPageState extends State<ListPage> {
   final TextEditingController _itemController = TextEditingController();
   final TextEditingController _quantityController = TextEditingController();
 
-  List<Map<String, dynamic>> shoppingList = [];
+  late ShoppingDatabase database;
+  late ShoppingDao shoppingDao;
+  List<ShoppingItem> shoppingList = [];
 
-  void addItem() {
+  @override
+  void initState() {
+    super.initState();
+    initDb();
+  }
+
+  Future<void> initDb() async {
+    database = await $FloorShoppingDatabase
+        .databaseBuilder('shopping_list.db')
+        .build();
+    shoppingDao = database.shoppingDao;
+    loadItems();
+  }
+
+  Future<void> loadItems() async {
+    final items = await shoppingDao.getAllItems();
+    setState(() {
+      shoppingList = items;
+    });
+  }
+
+  void addItem() async {
     String itemName = _itemController.text.trim();
     String quantity = _quantityController.text.trim();
 
     if (itemName.isNotEmpty && quantity.isNotEmpty) {
-      setState(() {
-        shoppingList.add({'name': itemName, 'quantity': quantity});
-        _itemController.clear();
-        _quantityController.clear();
-      });
+      final newItem = ShoppingItem(null, itemName, quantity);
+      await shoppingDao.insertItem(newItem);
+      loadItems();
+      _itemController.clear();
+      _quantityController.clear();
     }
   }
 
-  void deleteItem(int index) {
-    showDialog(
+  void deleteItem(int index) async {
+    // Show a confirmation dialog
+    bool? confirmDelete = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
@@ -55,23 +84,31 @@ class _ListPageState extends State<ListPage> {
           content: const Text("Are you sure you want to delete this item?"),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context), // No action
+              onPressed: () => Navigator.pop(context, false), // No
               child: const Text("No"),
             ),
             TextButton(
-              onPressed: () {
-                setState(() {
-                  shoppingList.removeAt(index);
-                });
-                Navigator.pop(context);
-              },
+              onPressed: () => Navigator.pop(context, true), // Yes
               child: const Text("Yes"),
             ),
           ],
         );
       },
     );
+
+    // If the user confirms deletion, proceed
+    if (confirmDelete == true) {
+      final itemToDelete = shoppingList[index];
+      await shoppingDao.deleteItem(itemToDelete); // Delete from the database
+      setState(() {
+        shoppingList.removeAt(index); // Remove from the list
+      });
+    }
   }
+
+
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -114,9 +151,9 @@ class _ListPageState extends State<ListPage> {
                     child: Card(
                       child: ListTile(
                         title: Text(
-                          "${index + 1}. ${shoppingList[index]['name']}",
+                          "${index + 1}. ${shoppingList[index].name}",
                         ),
-                        trailing: Text("x ${shoppingList[index]['quantity']}"),
+                        trailing: Text("x ${shoppingList[index].quantity}"),
                       ),
                     ),
                   );
